@@ -21,17 +21,17 @@ class StandardizeTS(nn.Module):
 
     def forward(self, rec):
         for direction in ['forward', 'backward']:
-            ts_data_direction = rec[direction]
+            ts_data_direction = rec['ts_data'][direction]
 
             ts_tensor = torch.as_tensor(ts_data_direction['values'])
             normalization = ((ts_tensor - self.mean) / self.std).tolist()  # * masks_tensor
             ts_data_direction['values'] = normalization
 
-            rec[direction] = ts_data_direction
+            rec['ts_data'][direction] = ts_data_direction
 
         if self.dict_ancillary is not None:
             for key, mean_std in self.dict_ancillary.items():
-                rec[key] = (rec[key] - mean_std[0]) / mean_std[1]
+                rec['ancillary_data'][key] = (rec['ancillary_data'][key] - mean_std['mean']) / mean_std['std']
 
         return rec
 
