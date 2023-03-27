@@ -10,7 +10,7 @@ def get_consistency_loss(pred_f, pred_b):
     return loss
 
 
-def merge_ret(ret_f, ret_b, attention=False):
+def merge_ret(ret_f, ret_b):
     loss_x_f = ret_f['x_loss']
     loss_x_b = ret_b['x_loss']
 
@@ -21,30 +21,22 @@ def merge_ret(ret_f, ret_b, attention=False):
     ret_f['x_loss'] = (ret_f['x_loss'] + ret_b['x_loss']) / 2
     ret_f['imputations'] = imputations
 
-    if attention:
-        loss = loss_x_f + loss_x_b + loss_c
-        hidden_states = torch.cat((ret_f['hidden_states'], ret_b['hidden_states']), dim=-1)
+    loss_y_f = ret_f['y_loss']
+    loss_y_b = ret_b['y_loss']
 
-        ret_f['loss'] = loss
-        ret_f['hidden_states'] = hidden_states
-    else:
+    loss = (loss_x_f + loss_y_f) + (loss_x_b + loss_y_b) + loss_c
 
-        loss_y_f = ret_f['y_loss']
-        loss_y_b = ret_b['y_loss']
+    predictions_f = ret_f['predictions']
+    predictions_b = ret_b['predictions']
 
-        loss = (loss_x_f + loss_y_f) + (loss_x_b + loss_y_b) + loss_c
+    predictions = (ret_f['predictions'] + ret_b['predictions']) / 2
 
-        predictions_f = ret_f['predictions']
-        predictions_b = ret_b['predictions']
+    ret_f['loss'] = loss
 
-        predictions = (ret_f['predictions'] + ret_b['predictions']) / 2
-
-        ret_f['loss'] = loss
-
-        ret_f['y_loss'] = (ret_f['y_loss'] + ret_b['y_loss']) / 2
-        ret_f['predictions_f'] = predictions_f
-        ret_f['predictions_b'] = predictions_b
-        ret_f['predictions'] = predictions
+    ret_f['y_loss'] = (ret_f['y_loss'] + ret_b['y_loss']) / 2
+    ret_f['predictions_f'] = predictions_f
+    ret_f['predictions_b'] = predictions_b
+    ret_f['predictions'] = predictions
 
     return ret_f
 
@@ -78,7 +70,9 @@ class BRITS(nn.Module):
             label_weight,
             data_dim: int = 7,
             seq_len: int = 223,
-            output_dim: int = 29
+            output_dim: int = 29,
+            ancillary_dim: int = 0,
+            embedding_dim: int = 50,
     ):
         super(BRITS, self).__init__()
 
@@ -88,6 +82,8 @@ class BRITS(nn.Module):
         self.output_dim = output_dim
         self.data_dim = data_dim
         self.seq_len = seq_len
+        self.ancillary_dim = ancillary_dim
+        self.embedding_dim = embedding_dim
 
         self.build()
 
@@ -98,7 +94,9 @@ class BRITS(nn.Module):
             self.label_weight,
             self.data_dim,
             self.seq_len,
-            self.output_dim
+            self.output_dim,
+            self.ancillary_dim,
+            self.embedding_dim
         )
         self.rits_b = RITS(
             self.rnn_hid_size,
@@ -107,6 +105,8 @@ class BRITS(nn.Module):
             self.data_dim,
             self.seq_len,
             self.output_dim,
+            self.ancillary_dim,
+            self.embedding_dim
         )
 
     def forward(self, data, stage='train'):

@@ -16,11 +16,14 @@ class LitBRITS(pl.LightningModule):
             label_weight: float = 0.75,
             data_dim: int = 6,
             seq_len: int = 12,
+            ancillary_dim: int = 0,
+            embedding_dim: int = 50,
             lr: float = 1e-3,
             wd: float = 0,
             optimizer: str = 'adam',
             scheduler: str = 'cosine'
     ):
+        print(f'Ancillary dim: {ancillary_dim}')
         super(LitBRITS, self).__init__()
         self.model = BRITS(
             rnn_hid_size=rnn_hid_size,
@@ -28,7 +31,9 @@ class LitBRITS(pl.LightningModule):
             label_weight=label_weight,
             data_dim=data_dim,
             seq_len=seq_len,
-            output_dim=len(idx_to_class)
+            output_dim=len(idx_to_class),
+            ancillary_dim=ancillary_dim,
+            embedding_dim=embedding_dim
         )
 
         # save hyper-parameters to self.hparams (auto-logged by W&B)

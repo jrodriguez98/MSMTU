@@ -92,7 +92,9 @@ class RITS(nn.Module):
             label_weight,
             data_dim=7,
             seq_len=223,
-            output_dim: int = 29
+            output_dim: int = 29,
+            ancillary_dim: int = 0,
+            embedding_dim: int = 50
     ):
         super(RITS, self).__init__()
 
@@ -102,6 +104,7 @@ class RITS(nn.Module):
         self.output_dim = output_dim
         self.data_dim = data_dim
         self.seq_len = seq_len
+        self.ancillary_dim = ancillary_dim
 
         # Network components
         self.rnn_cell = nn.LSTMCell(self.data_dim * 2, self.rnn_hid_size)
@@ -116,11 +119,12 @@ class RITS(nn.Module):
 
         self.dropout = nn.Dropout(p=0.25)
 
-        # Add an FC layer for geographical coordinates
-        self.ancillary_embed = nn.Linear(4, 50)
+        if ancillary_dim:
+            # Add an FC layer for geographical coordinates
+            self.ancillary_embed = nn.Linear(self.ancillary_dim, embedding_dim)
 
-        # Add concatenation layer to concatenate the hidden state with the geographical coordinates
-        self.concat = nn.Linear(self.rnn_hid_size + 50, self.rnn_hid_size)
+            # Add concatenation layer to concatenate the hidden state with ancillary features
+            self.concat = nn.Linear(self.rnn_hid_size + embedding_dim, self.rnn_hid_size)
 
         self.out = nn.Linear(self.rnn_hid_size, self.output_dim)
 
@@ -178,15 +182,17 @@ class RITS(nn.Module):
         imputations = torch.cat(imputations, dim=1)
 
         labels = labels.long()
-        labels = labels.view(-1)  # To have labels in 1-D
+        labels = labels.view(-1)  # labels in 1-D
 
         x_loss = x_loss * self.impute_weight
 
-        # Compute ancillary features
-        ancillary_embed = torch.relu(self.ancillary_embed(data['ancillary']))
+        if self.ancillary_dim:
+            # Compute ancillary features
+            ancillary_embed = torch.relu(self.ancillary_embed(data['ancillary']))
 
-        # Concatenate hidden states with ancillary features
-        h = torch.relu(self.concat(torch.cat([h, ancillary_embed], dim=1)))
+            # Concatenate hidden states with ancillary features
+            h = torch.relu(self.concat(torch.cat([h, ancillary_embed], dim=1)))
+
         y_h = self.out(h)
 
         probs = data['probs']
