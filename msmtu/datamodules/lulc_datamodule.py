@@ -8,40 +8,22 @@ import torch.utils.data as data
 from typing import Optional
 from sklearn.model_selection import train_test_split
 
-from torchvision.transforms import Compose
+from msmtu.transforms import StandardizeTS
 
-from msmtu.transforms import StandardizeTS, NormalizeTS, TasseledCap
+mean_modis = np.array([1778.0370114114635, 2885.055655885381, 1256.2631572253467, 1586.7335998607268,
+                       2817.6737163027287, 2420.865232616906, 1763.7376743953382])
 
+std_modis = np.array([2067.9758198306, 1811.1213005051807, 2146.4020578479854, 2059.230258563475,
+                      1454.778090999886, 1595.473540093584, 1487.7149351931803])
 
-mean_modis = np.array([690.321362412446, 553.2776272086649, 867.2325282435646, 833.0284999128422,
-                       221.2526687692042, 169.7456052454369])
+mean_long = -4.5726
+std_long = 1.42003659
 
-std_modis = np.array([1749.9119360995155, 1534.9512898299881, 1779.6677020749464, 1801.2745316809373,
-                      300.98534000431476, 315.93259618840733])
+mean_lat = 37.4675
+std_lat = 0.54427359
 
-mean_modis_new = np.array([1811.697581521511, 2861.938913940673, 1270.1957117206118, 1622.909848746563,
-                       2402.1705398357713, 1763.5084861700673])
-
-std_modis_new = np.array([2089.8165069152788, 1827.2811222604732, 2142.840320296659, 2083.5978986981095,
-                      1602.920415871654, 1482.0962110322992])
-
-mean_modis_med = np.array([1550.7355906531832, 2976.9712384451013, 755.5466574112033, 1253.0933420803042,
-                       2824.077996508857, 2112.5038464080258])
-
-std_modis_med = np.array([1048.7818683835653, 1010.375543300361, 581.5173090725458, 732.1518471832478,
-                      1279.1582700779547, 1310.1440129753764])
-
-mean_modis_3 = np.array([1778.0370114114635, 2885.055655885381, 1256.2631572253467, 1586.7335998607268,
-                         2817.6737163027287, 2420.865232616906, 1763.7376743953382])
-
-std_modis_3 = np.array([2067.9758198306, 1811.1213005051807, 2146.4020578479854, 2059.230258563475,
-                       1454.778090999886, 1595.473540093584, 1487.7149351931803])
-
-mean_geo = np.array([-4.5726, 37.4675])
-std_geo = np.array([1.42003659, 0.54427359])
-
-mean_elevation = 526.941630062964
-std_elevation = 434.20557148483016
+mean_altitude = 526.941630062964
+std_altitude = 434.20557148483016
 
 mean_slope = 9.098918613850193
 std_slope = 6.635985730650851
@@ -62,32 +44,16 @@ mean_temperature_min = 10.047357
 std_temperature_min = 2.012799
 
 
-mean_modis_med_eu = np.array([1107.4078664300182, 2727.1872231927964, 591.093364933296, 990.3798975100523,
-                       2281.1937607581785, 1482.0560172222522])
-
-std_modis_med_eu = np.array([713.3933504880088, 1036.380917844918, 583.3867604092451, 613.2817171568463,
-                      890.2738590537749, 718.3605464250702])
-
-min_modis = np.array([0.0, 0.0, 0.0, 0.0, -100.0, 0.0])
-
-max_modis = np.array([11802.0, 11852.0, 10861.0, 11836.0, 10103.0, 14108.0])
-
-
 def collate_fn(recs):
     forward = np.array(list(map(lambda x: x['forward'], recs)))
     backward = np.array(list(map(lambda x: x['backward'], recs)))
 
     def to_tensor_dict(recs):
-
         values = torch.FloatTensor(np.array(list(map(lambda r: r['values'], recs))))
         masks = torch.FloatTensor(np.array(list(map(lambda r: r['masks'], recs))))
         deltas = torch.FloatTensor(np.array(list(map(lambda r: r['deltas'], recs))))
 
-        evals = torch.FloatTensor(np.array(list(map(lambda r: r['evals'], recs))))
-        eval_masks = torch.FloatTensor(np.array(list(map(lambda r: r['eval_masks'], recs))))
-
-        return {'values': values, 'masks': masks, 'deltas': deltas, 'evals': evals,
-                'eval_masks': eval_masks}
+        return {'values': values, 'masks': masks, 'deltas': deltas}
 
     ret_dict = {
         'forward': to_tensor_dict(forward),
@@ -95,15 +61,15 @@ def collate_fn(recs):
         'labels': torch.FloatTensor(np.array(list(map(lambda x: x['label'], recs)))),
         'probs': torch.FloatTensor(np.array(list(map(lambda x: x['probs'], recs)))),
         'ancillary': torch.FloatTensor(np.array(list(map(lambda x: [
-            x['geo'][0],
-            x['geo'][1],
-            x['elevation'],
+            x['longitude'],
+            x['latitude'],
+            x['altitude'],
             x['slope'],
-            #x['precipitation'],
-            #x['evapotranspiration'],
-            #x['temp_ave'],
-            #x['temp_max'],
-            #x['temp_min'],
+            # x['precipitation'],
+            # x['evapotranspiration'],
+            # x['temp_ave'],
+            # x['temp_max'],
+            # x['temp_min'],
         ], recs)))),
         'square_ids': torch.FloatTensor(np.array(list(map(lambda x: x['square_id'], recs)))),
     }
@@ -126,20 +92,21 @@ class LULCDataModuleOptim(pl.LightningDataModule):
         super(LULCDataModuleOptim, self).__init__()
 
         dict_ancillary = {
-            'geo': [mean_geo, std_geo],
-            'elevation': [mean_elevation, std_elevation],
+            'longitude': [mean_long, std_long],
+            'latitude': [mean_lat, std_lat],
+            'altitude': [mean_altitude, std_altitude],
             'slope': [mean_slope, std_slope],
-            #'precipitation': [mean_precipitation, std_precipitation],
-            #'evapotranspiration': [mean_evapotranspiration, std_evapotranspiration],
-            #'temp_ave': [mean_temperature_ave, std_temperature_ave],
-            #'temp_max': [mean_temperature_max, std_temperature_max],
-            #'temp_min': [mean_temperature_min, std_temperature_min],
+            # 'precipitation': [mean_precipitation, std_precipitation],
+            # 'evapotranspiration': [mean_evapotranspiration, std_evapotranspiration],
+            # 'temp_ave': [mean_temperature_ave, std_temperature_ave],
+            # 'temp_max': [mean_temperature_max, std_temperature_max],
+            # 'temp_min': [mean_temperature_min, std_temperature_min],
         }
         self.data_dir = data_dir
         self.batch_size = batch_size
         self.transform = StandardizeTS(
-            mean=mean_modis_3,
-            std=std_modis_3,
+            mean=mean_modis,
+            std=std_modis,
             dict_ancillary=dict_ancillary,
         )
 
@@ -181,10 +148,12 @@ class LULCDataModuleOptim(pl.LightningDataModule):
 
     def setup(self, stage: Optional[str] = None) -> None:
         if stage == 'fit' or stage is None:
-            self.val_set = LULCOptim(self.data_dir, self.val_labels_path, self.transform, self.data_dim, ancillary_path=self.ancillary_path)
+            self.val_set = LULCOptim(self.data_dir, self.val_labels_path, self.transform, self.data_dim,
+                                     ancillary_path=self.ancillary_path)
 
         if stage == 'test' or stage is None:
-            self.test_set = LULCOptim(self.data_dir, self.test_labels_path, self.transform, self.data_dim, ancillary_path=self.ancillary_path)
+            self.test_set = LULCOptim(self.data_dir, self.test_labels_path, self.transform, self.data_dim,
+                                      ancillary_path=self.ancillary_path)
 
     def train_dataloader(self):
         train_loader = data.DataLoader(
@@ -254,10 +223,10 @@ class LULCDataModule(pl.LightningDataModule):
 
         self.data_dir = data_dir
         self.batch_size = batch_size
-        self.transform = StandardizeTS(mean=mean_modis_3, std=std_modis_3)
+        self.transform = StandardizeTS(mean=mean_modis, std=std_modis)
         # self.transform = NormalizeTS(x_min=min_modis, x_max=max_modis, feature_range=(-1, 1))
         """self.transform = Compose([
-            StandardizeTS(mean=mean_modis_3, std=std_modis_3),
+            StandardizeTS(mean=mean_modis, std=std_modis),
             TasseledCap(),
         ])"""
         print(f'Transform: {self.transform}')
@@ -285,7 +254,7 @@ class LULCDataModule(pl.LightningDataModule):
         self.test_dir = None
         if test_dir is not None:
             assert self.test_size == 0, f'"test_dir" ({test_dir}) provided but test split == {self.val_size}. Test ' \
-                                       f'split should be 0 in this case. '
+                                        f'split should be 0 in this case. '
             self.test_dir = test_dir
 
     def _get_val_size(self):
@@ -331,7 +300,8 @@ class LULCDataModule(pl.LightningDataModule):
         print('----------------------')
 
         print(f'Len full set: {len(self.full_set)}')
-        print(f'Len train_idxs + self.test_idxs: {len(self.train_idxs)} + {len(self.test_idxs)} = {len(self.train_idxs) + len(self.test_idxs)}')
+        print(
+            f'Len train_idxs + self.test_idxs: {len(self.train_idxs)} + {len(self.test_idxs)} = {len(self.train_idxs) + len(self.test_idxs)}')
         unique, counts = np.unique(self.full_set.targets, return_counts=True)
 
         assert len(self.full_set) == len(self.train_idxs) + len(self.test_idxs)

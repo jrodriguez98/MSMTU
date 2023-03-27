@@ -207,15 +207,18 @@ class LULCOptim(Dataset):
         with open(self.json_paths[idx], 'r') as json_file:
             data = json.load(json_file)
 
+        square_id = self.labels_df.index[idx]
         rec = data['ts_data']
-        rec['geo'] = json.loads(data['metadata']['.geo'])['coordinates']
-        rec['elevation'] = self.ancillary_df.loc[self.labels_df.index[idx]]['elevation']
-        rec['slope'] = self.ancillary_df.loc[self.labels_df.index[idx]]['slope']
-        rec['precipitation'] = self.ancillary_df.loc[self.labels_df.index[idx]]['precipitation']
-        rec['evapotranspiration'] = self.ancillary_df.loc[self.labels_df.index[idx]]['evapotranspiration']
-        rec['temp_ave'] = self.ancillary_df.loc[self.labels_df.index[idx]]['temp_ave']
-        rec['temp_max'] = self.ancillary_df.loc[self.labels_df.index[idx]]['temp_max']
-        rec['temp_min'] = self.ancillary_df.loc[self.labels_df.index[idx]]['temp_min']
+
+        rec['longitude'] = self.ancillary_df.loc[square_id]['longitude']
+        rec['latitude'] = self.ancillary_df.loc[square_id]['latitude']
+        rec['altitude'] = self.ancillary_df.loc[square_id]['altitude']
+        rec['slope'] = self.ancillary_df.loc[square_id]['slope']
+        rec['precipitation'] = self.ancillary_df.loc[square_id]['precipitation']
+        rec['evapotranspiration'] = self.ancillary_df.loc[square_id]['evapotranspiration']
+        rec['temp_ave'] = self.ancillary_df.loc[square_id]['temp_ave']
+        rec['temp_max'] = self.ancillary_df.loc[square_id]['temp_max']
+        rec['temp_min'] = self.ancillary_df.loc[square_id]['temp_min']
 
         if self.transform is not None:
             rec = self.transform(rec)
@@ -225,7 +228,7 @@ class LULCOptim(Dataset):
 
         rec['probs'] = self.labels_df.iloc[idx][self.classes].tolist()
         rec['max_prob'] = max(rec['probs'])
-        rec['square_id'] = self.labels_df.index[idx]
+        rec['square_id'] = square_id
 
 
 
