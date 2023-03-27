@@ -1,1 +1,1 @@
-from .lulc_datamodule import LULCDataModule, LULCDataModuleOptim
+from .lulc_datamodule import LULCDataModuleOptim

@@ -187,7 +187,15 @@ class LULC(Dataset):
 
 
 class LULCOptim(Dataset):
-    def __init__(self, directory, labels_path, transform=None, data_dim=6, ancillary_path=None):
+    def __init__(
+            self,
+            directory,
+            labels_path,
+            transform=None,
+            data_dim=6,
+            ancillary_path=None,
+            ancillary_data=[]
+    ):
         super(LULCOptim, self).__init__()
 
         self.data_dim = data_dim
@@ -197,7 +205,8 @@ class LULCOptim(Dataset):
         self.transform = transform
 
         if ancillary_path is not None:
-            self.ancillary_df = pd.read_csv(ancillary_path).set_index('square_id')
+            self.ancillary_df = pd.read_csv(ancillary_path).set_index('square_id').loc[self.labels_df.index]
+            self.ancillary_data = ancillary_data
 
     def __len__(self):
         return len(self.json_paths)
@@ -208,17 +217,10 @@ class LULCOptim(Dataset):
             data = json.load(json_file)
 
         square_id = self.labels_df.index[idx]
-        rec = data['ts_data']
-
-        rec['longitude'] = self.ancillary_df.loc[square_id]['longitude']
-        rec['latitude'] = self.ancillary_df.loc[square_id]['latitude']
-        rec['altitude'] = self.ancillary_df.loc[square_id]['altitude']
-        rec['slope'] = self.ancillary_df.loc[square_id]['slope']
-        rec['precipitation'] = self.ancillary_df.loc[square_id]['precipitation']
-        rec['evapotranspiration'] = self.ancillary_df.loc[square_id]['evapotranspiration']
-        rec['temp_ave'] = self.ancillary_df.loc[square_id]['temp_ave']
-        rec['temp_max'] = self.ancillary_df.loc[square_id]['temp_max']
-        rec['temp_min'] = self.ancillary_df.loc[square_id]['temp_min']
+        rec = {
+            'ts_data': data['ts_data'],
+            'ancillary_data': {k: self.ancillary_df.loc[square_id][k] for k in self.ancillary_data}
+        }
 
         if self.transform is not None:
             rec = self.transform(rec)
@@ -230,14 +232,9 @@ class LULCOptim(Dataset):
         rec['max_prob'] = max(rec['probs'])
         rec['square_id'] = square_id
 
-
-
-        if test_imp:
-            rec = _set_test_imp(rec)
-        else:
-            # Fix deltas
-            rec['forward']['deltas'] = _parse_delta(rec['forward']['masks'], 'forward')
-            rec['backward']['deltas'] = _parse_delta(rec['backward']['masks'], 'backward')
+        # Fix deltas
+        rec['ts_data']['forward']['deltas'] = _parse_delta(rec['ts_data']['forward']['masks'], 'forward')
+        rec['ts_data']['backward']['deltas'] = _parse_delta(rec['ts_data']['backward']['masks'], 'backward')
 
         return rec
 
