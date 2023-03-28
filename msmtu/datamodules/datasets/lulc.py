@@ -27,12 +27,10 @@ def _parse_delta(masks, dir_):
 
 
 class LULCInference(Dataset):
-    def __init__(self, data_dir, transform=None, label: int = 0):
+    def __init__(self, json_dir, transform=None, label: int = 0):
 
-        self.data_dir = data_dir
-        json_path_pattern = os.path.join(self.data_dir, '*.json')
-
-        print(self.data_dir)
+        self.json_dir = json_dir
+        json_path_pattern = os.path.join(self.json_dir, '*.json')
 
         self.json_paths = sorted(glob.glob(json_path_pattern))
 
@@ -122,7 +120,6 @@ class LULC(Dataset):
 
         self.classes, self.class_to_idx, self.idx_to_class = _utils.find_classes(directory)
 
-        print(self.class_to_idx)
         if directory[-1] != '/':
             directory = directory + '/'
 
@@ -166,9 +163,6 @@ class LULC(Dataset):
 
             class_name = class_dir.split(sep='/')[-2]
 
-            """if '.' in class_name:
-                class_name = class_name.split(sep='.')[0]"""
-            print(f'Class name: {class_name}')
             if class_name in self.class_to_idx:
                 class_idx = self.class_to_idx[class_name]
             else:
@@ -250,8 +244,6 @@ class LULCOptim(Dataset):
         self.targets = self.labels_df['Class_max'].astype(str).map(self.class_to_idx).tolist()
 
         assert len(self.json_paths) == len(self.labels_df) == len(self.targets)
-
-        print(self.class_to_idx)
 
     def get_dicts(self):
         return self.class_to_idx, self.idx_to_class

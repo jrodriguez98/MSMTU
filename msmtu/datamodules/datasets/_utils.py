@@ -15,8 +15,8 @@ def is_excluded(class_dir: str, excluded_classes: list):
     return False
 
 
-def get_global_idxs(data_dir: str, excluded_classes: list):
-    inter_part_dir = os.path.join(data_dir, 'partitions/')
+def get_global_idxs(json_dir: str, excluded_classes: list):
+    inter_part_dir = os.path.join(json_dir, 'partitions/')
 
     class_dirs = sort_nicely(glob(inter_part_dir + '*/'))
 
@@ -28,7 +28,6 @@ def get_global_idxs(data_dir: str, excluded_classes: list):
             continue
 
         class_name = class_dir.split('/')[-2]
-        print(f'Processing class: {class_name}')
         class_train_idxs = np.load(os.path.join(class_dir, 'train.npy'))
         class_test_idxs = np.load(os.path.join(class_dir, 'test.npy'))
 

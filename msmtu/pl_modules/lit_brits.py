@@ -7,6 +7,7 @@ from msmtu.metrics import MSE, MAE
 from .models import BRITS
 from .utils import _to_var
 
+
 class LitBRITS(pl.LightningModule):
     def __init__(
             self,
@@ -21,10 +22,11 @@ class LitBRITS(pl.LightningModule):
             lr: float = 1e-3,
             wd: float = 0,
             optimizer: str = 'adam',
-            scheduler: str = 'cosine'
+            scheduler: str = 'cosine',
+            pre_trained_path: str = None,
     ):
-        print(f'Ancillary dim: {ancillary_dim}')
         super(LitBRITS, self).__init__()
+
         self.model = BRITS(
             rnn_hid_size=rnn_hid_size,
             impute_weight=impute_weight,
@@ -51,7 +53,6 @@ class LitBRITS(pl.LightningModule):
 
         self.test_acc = Accuracy(task='multiclass', num_classes=num_classes)
         self.test_f1_class = F1Score(task='multiclass', num_classes=num_classes, average=None)
-        self.test_cm = ConfusionMatrix(task='multiclass', num_classes=num_classes, normalize='none')
 
         self.train_rmse_class = MSE(squared=False, num_classes=num_classes, averaged=False)
         self.val_rmse_class = MSE(squared=False, num_classes=num_classes, averaged=False)
@@ -139,7 +140,6 @@ class LitBRITS(pl.LightningModule):
 
         self.test_acc(ret['predictions'], ret['labels'])
         self.test_f1_class(ret['predictions'], ret['labels'])
-        self.test_cm(ret['predictions'], ret['labels'])
 
         self.log('test/loss', ret['loss'])
         self.log('test/acc', self.test_acc, on_step=False, on_epoch=True)
@@ -153,8 +153,6 @@ class LitBRITS(pl.LightningModule):
 
     def test_epoch_end(self, outputs):
         # Compute metrics
-        self.test_cm.compute()
-
         metrics = {
             'f1': self.test_f1_class,
             'rmse': self.test_rmse_class,

@@ -2,11 +2,9 @@ import os.path
 
 import pytorch_lightning as pl
 import numpy as np
-from .datasets import LULC, LULCSubset, get_global_idxs, LULCOptim
+from .datasets import LULCOptim
 import torch
 import torch.utils.data as data
-from typing import Optional
-from sklearn.model_selection import train_test_split
 
 from msmtu.transforms import StandardizeTS
 
@@ -55,7 +53,7 @@ def collate_fn(recs):
 class LULCDataModuleOptim(pl.LightningDataModule):
     def __init__(
             self,
-            data_dir: str,
+            json_dir: str,
             batch_size: int,
             test_imp: bool = False,
             data_dim: int = 6,
@@ -67,7 +65,7 @@ class LULCDataModuleOptim(pl.LightningDataModule):
     ):
         super(LULCDataModuleOptim, self).__init__()
 
-        self.data_dir = data_dir
+        self.json_dir = json_dir
         self.batch_size = batch_size
         self.ancillary_data = ancillary_data
         self.transform = StandardizeTS(
@@ -75,8 +73,6 @@ class LULCDataModuleOptim(pl.LightningDataModule):
             std=std_modis,
             dict_ancillary={k: dict_ancillary[k] for k in ancillary_data}
         )
-
-        print(f'Transform: {self.transform}')
 
         self.test_imp = test_imp
         self.data_dim = data_dim
@@ -91,18 +87,18 @@ class LULCDataModuleOptim(pl.LightningDataModule):
         else:
             self.val_labels_path = val_labels_path
 
-        if not os.path.exists(test_labels_path):
+        if test_labels_path is not None and not os.path.exists(test_labels_path):
             raise ValueError(f'Test label path does not exists: {test_labels_path}')
         else:
             self.test_labels_path = test_labels_path
 
-        if not os.path.exists(ancillary_path):
+        if ancillary_path is not None and not os.path.exists(ancillary_path):
             raise ValueError(f'ancillary path does not exists: {ancillary_path}')
         else:
             self.ancillary_path = ancillary_path
 
         self.train_set = LULCOptim(
-            self.data_dir,
+            self.json_dir,
             self.train_labels_path,
             self.transform,
             self.data_dim,
@@ -113,10 +109,10 @@ class LULCDataModuleOptim(pl.LightningDataModule):
     def _get_val_size(self):
         return self.val_size / (1 - self.test_size)
 
-    def setup(self, stage: Optional[str] = None) -> None:
+    def setup(self, stage=None) -> None:
         if stage == 'fit' or stage is None:
             self.val_set = LULCOptim(
-                self.data_dir,
+                self.json_dir,
                 self.val_labels_path,
                 self.transform,
                 self.data_dim,
@@ -126,7 +122,7 @@ class LULCDataModuleOptim(pl.LightningDataModule):
 
         if stage == 'test' or stage is None:
             self.test_set = LULCOptim(
-                self.data_dir,
+                self.json_dir,
                 self.test_labels_path,
                 self.transform,
                 self.data_dim,
