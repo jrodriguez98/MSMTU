@@ -5,8 +5,8 @@ from pprint import pprint
 import os
 import wandb
 
-from msmtu.datamodules import LULCDataModule, LULCDataModuleOptim
-from msmtu.lightningmodules import LitBRITS, LitBRITSSep
+from msmtu.datamodules import LULCDataModuleOptim
+from msmtu.pl_modules import LitBRITS
 
 from msmtu.utils import save_predictions
 
@@ -15,7 +15,7 @@ def test(project: str, run_name: str, config: dict, checkpoint_path: str, log: b
     # ------------
     # Create Model
     # ------------
-    model = LitBRITSSep.load_from_checkpoint(checkpoint_path, **config['model'])
+    model = LitBRITS.load_from_checkpoint(checkpoint_path, **config['model'])
     # model = LitBRITS(**config['model'])
 
     # ------------
