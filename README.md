@@ -2,7 +2,7 @@
  
 ## Bidirectional Recurrent Imputation and Abundance Estimation of LULC Classes With MODIS Multispectral Time-Series and Geo-Topographic and Climatic Data
 
-[![Paper]](https://ieeexplore.ieee.org/abstract/document/10416323)
+![Paper](https://ieeexplore.ieee.org/abstract/document/10416323)
 
 
 </div>
